@@ -3,6 +3,7 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import { CellManager } from '../world/CellManager.js';
 import { FirstPersonController } from '../player/FirstPersonController.js';
 import { Hud } from '../ui/Hud.js';
+import { advanceLivingCity, createLivingCity } from '../simulation/livingCity.js';
 
 export class Game {
   constructor(character) {
@@ -12,6 +13,7 @@ export class Game {
     this.elapsed = 0;
     this.raycaster = new THREE.Raycaster();
     this.center = new THREE.Vector2(0, 0);
+    this.livingCity = createLivingCity();
   }
 
   async start() {
@@ -26,21 +28,21 @@ export class Game {
     this.renderer.toneMappingExposure = 1.05;
 
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.08, 140);
+    this.camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.08, 380);
     this.scene.add(new THREE.HemisphereLight('#ffd79b', '#63291f', 2.2));
     const sun = new THREE.DirectionalLight('#fff0c4', 3.3);
     sun.position.set(-25, 42, 18);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
-    sun.shadow.camera.left = -45;
-    sun.shadow.camera.right = 45;
-    sun.shadow.camera.top = 45;
-    sun.shadow.camera.bottom = -45;
+    sun.shadow.camera.left = -135;
+    sun.shadow.camera.right = 135;
+    sun.shadow.camera.top = 135;
+    sun.shadow.camera.bottom = -135;
     this.scene.add(sun);
 
-    this.cellManager = new CellManager({ scene: this.scene, rapier: RAPIER });
+    this.cellManager = new CellManager({ scene: this.scene, rapier: RAPIER, context: { city: this.livingCity } });
     this.player = new FirstPersonController({ camera: this.camera, canvas: this.canvas, rapier: RAPIER });
-    this.hud = new Hud(this.character);
+    this.hud = new Hud(this.character, this.livingCity);
     this.loadCell('capital-gate', 'arrival');
 
     window.addEventListener('keydown', (event) => {
@@ -76,7 +78,9 @@ export class Game {
   update() {
     const deltaTime = Math.min(this.clock.getDelta(), 0.05);
     this.elapsed += deltaTime;
+    advanceLivingCity(this.livingCity, deltaTime / 2);
     this.player.update(deltaTime);
+    this.cellManager.current?.update?.(deltaTime);
     this.updateInteraction();
     this.hud.updateTime(this.elapsed);
     this.renderer.render(this.scene, this.camera);

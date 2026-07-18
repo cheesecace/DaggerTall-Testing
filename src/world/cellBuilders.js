@@ -1,7 +1,10 @@
 import * as THREE from 'three';
 import { createTileTexture } from '../render/pixelTextures.js';
 import { createCuboid, createVoxelHumanoid, WORLD_HUMANOID_SCALE } from '../render/voxel.js';
+import { poseVoxelHumanoid } from '../render/voxelAnimator.js';
 import { createNpcSkin } from '../data/npcSkins.js';
+import { CAPITAL_BUILDINGS, CAPITAL_DISTRICTS } from './capitalPlan.js';
+import { getCitizenActivity } from '../simulation/livingCity.js';
 
 function makeMaterials() {
   const material = (pattern, colors) => new THREE.MeshLambertMaterial({
@@ -20,6 +23,10 @@ function makeMaterials() {
     water: material('water', ['#258d96', '#6bc1b2', '#c6e5bd']),
     brass: material('stone', ['#b98231', '#e1b55b', '#66421f']),
     ember: material('cloth', ['#b73e20', '#ee7933', '#5e1e19']),
+    blueBrick: material('plaster', ['#175f7d', '#237f9c', '#0f405a', '#d9a342']),
+    clay: material('plaster', ['#a95736', '#c97645', '#783a2c']),
+    reeds: material('wood', ['#8f8b3f', '#b6ae55', '#55572b']),
+    plaster: material('plaster', ['#e0bd7b', '#f0d49c', '#aa794d']),
     black: new THREE.MeshLambertMaterial({ color: '#130e0d' }),
   };
 }
@@ -38,20 +45,6 @@ function createBuilder(rapier, world, group) {
     return mesh;
   };
   return { addBox, interactive };
-}
-
-function addBuilding(addBox, materials, x, z, width, depth, height, accent = materials.turquoise) {
-  addBox({ size: [width, height, depth], position: [x, height / 2, z], material: materials.sandstone });
-  addBox({ size: [width + 0.5, 0.35, depth + 0.5], position: [x, height + 0.18, z], material: materials.paleStone });
-  addBox({ size: [width * 0.72, 0.24, 1.25], position: [x, height * 0.72, z + depth / 2 + 0.58], material: accent, collision: false });
-  addBox({ size: [1.6, 2.8, 0.24], position: [x, 1.4, z + depth / 2 + 0.13], material: materials.wood, collision: false });
-  for (const windowX of [-width * 0.28, width * 0.28]) {
-    addBox({ size: [1.05, 1.15, 0.2], position: [x + windowX, height * 0.56, z + depth / 2 + 0.14], material: materials.turquoise, collision: false });
-    addBox({ size: [1.35, 0.15, 0.35], position: [x + windowX, height * 0.56 - 0.65, z + depth / 2 + 0.2], material: materials.paleStone, collision: false });
-  }
-  for (let edge = -width / 2 + 0.5; edge <= width / 2 - 0.5; edge += 1.5) {
-    addBox({ size: [0.7, 0.65, 0.7], position: [x + edge, height + 0.62, z + depth / 2 - 0.15], material: materials.paleStone, collision: false });
-  }
 }
 
 function addMarketStall(addBox, materials, x, z, accent) {
@@ -90,93 +83,181 @@ function addPalm(addBox, materials, x, z) {
   addBox({ size: [0.55, 0.3, 3.2], position: [x, 4.45, z], material: materials.foliage, collision: false });
 }
 
-function addCapitalCrowd(group) {
-  const citizens = [
-    ['human', 'female', 8, -4.2, -1.2, Math.PI],
-    ['orc', 'male', 0, 4.5, -1.4, Math.PI],
-    ['elf', 'female', 7, -10.2, -4.5, -Math.PI / 2],
-    ['human', 'male', 4, 10.5, -4.8, Math.PI / 2],
-    ['orc', 'female', 1, -10.5, -12.4, -Math.PI / 2],
-    ['elf', 'male', 1, 10.5, -12.5, Math.PI / 2],
-    ['human', 'female', 3, -3.8, -15.7, 0],
-    ['orc', 'male', 4, 4.2, -15.5, 0],
-    ['elf', 'female', 9, -17.5, 5.7, Math.PI / 2],
-    ['human', 'male', 8, 17.8, -6.3, -Math.PI / 2],
-    ['orc', 'female', 10, -7.2, 9.8, Math.PI],
-    ['elf', 'male', 12, 7.2, 10.8, Math.PI],
-  ];
-  citizens.forEach(([race, gender, variant, x, z, rotation]) => {
-    const profile = createNpcSkin(race, gender, variant);
-    const citizen = createVoxelHumanoid(profile, WORLD_HUMANOID_SCALE);
-    citizen.name = profile.visual.title;
-    citizen.userData.npcSkinId = profile.id;
-    citizen.position.set(x, 0, z);
-    citizen.rotation.y = rotation;
-    group.add(citizen);
+function addPlannedBuilding(addBox, materials, building) {
+  const [x, z] = building.position;
+  const [width, depth] = building.size;
+  const accent = building.district === 'canal' ? materials.turquoise : building.district === 'artisans' ? materials.crimson : building.district === 'citadel' ? materials.brass : materials.reeds;
+  const districtMaterial = {
+    gate: materials.clay,
+    market: materials.sandstone,
+    artisans: materials.clay,
+    canal: materials.plaster,
+    temple: materials.paleStone,
+    citadel: materials.blueBrick,
+  }[building.district];
+  addBox({ size: [width, building.height, depth], position: [x, building.height / 2, z], material: districtMaterial, name: building.id });
+  addBox({ size: [width + 0.5, 0.28, depth + 0.5], position: [x, building.height + 0.14, z], material: materials.plaster, collision: false });
+  const northSouth = building.facing === 'north' || building.facing === 'south';
+  const direction = building.facing === 'north' || building.facing === 'west' ? -1 : 1;
+  const doorPosition = northSouth
+    ? [x, 1.35, z + direction * (depth / 2 + 0.13)]
+    : [x + direction * (width / 2 + 0.13), 1.35, z];
+  const doorSize = northSouth ? [1.45, 2.7, 0.22] : [0.22, 2.7, 1.45];
+  const isBrassCamel = building.id === 'market-tavern-04';
+  addBox({
+    size: doorSize,
+    position: doorPosition,
+    material: materials.wood,
+    collision: false,
+    name: isBrassCamel ? 'The Brass Camel door' : `${building.id}-door`,
+    userData: isBrassCamel
+      ? { interaction: 'Enter The Brass Camel', portal: 'inn' }
+      : { interaction: `${building.type.replaceAll('-', ' ')} · ${building.district} district` },
   });
+  const lintelPosition = [...doorPosition];
+  lintelPosition[1] = 2.9;
+  addBox({ size: northSouth ? [2.1, 0.28, 0.42] : [0.42, 0.28, 2.1], position: lintelPosition, material: accent, collision: false });
+  for (let edge = -width / 2 + 0.6; edge < width / 2; edge += 1.5) {
+    addBox({ size: [0.72, 0.55, 0.72], position: [x + edge, building.height + 0.55, z], material: materials.plaster, collision: false });
+  }
 }
 
-export function buildCapitalCell(rapier, world) {
+function addWallRing(addBox, materials, radius, height, thickness, gateHalfWidth, material) {
+  const sideLength = radius * 2;
+  for (const x of [-radius, radius]) addBox({ size: [thickness, height, sideLength], position: [x, height / 2, 0], material });
+  for (const z of [-radius, radius]) {
+    const segmentWidth = radius - gateHalfWidth;
+    addBox({ size: [segmentWidth, height, thickness], position: [-(radius + gateHalfWidth) / 2, height / 2, z], material });
+    addBox({ size: [segmentWidth, height, thickness], position: [(radius + gateHalfWidth) / 2, height / 2, z], material });
+  }
+  for (let offset = -radius + 12; offset <= radius - 12; offset += 18) {
+    for (const z of [-radius, radius]) addBox({ size: [3.8, height + 3, 5.2], position: [offset, (height + 3) / 2, z], material });
+    for (const x of [-radius, radius]) addBox({ size: [5.2, height + 3, 3.8], position: [x, (height + 3) / 2, offset], material });
+  }
+  for (const z of [-radius, radius]) {
+    addBox({ size: [3.8, height + 5, 7], position: [-gateHalfWidth, (height + 5) / 2, z], material });
+    addBox({ size: [3.8, height + 5, 7], position: [gateHalfWidth, (height + 5) / 2, z], material });
+    addBox({ size: [gateHalfWidth * 2, 2.2, 5], position: [0, height + 2.2, z], material: materials.blueBrick });
+  }
+}
+
+function addZiggurat(addBox, materials) {
+  const levels = [[24, 5, 20], [18, 4, 15], [12, 4, 10], [7, 5, 6]];
+  let y = 0;
+  for (const [width, height, depth] of levels) {
+    addBox({ size: [width, height, depth], position: [-36, y + height / 2, -92], material: y % 2 ? materials.blueBrick : materials.clay });
+    y += height;
+  }
+  for (let index = 0; index < 10; index += 1) addBox({ size: [2, 0.45, 1.8], position: [-36, 0.3 + index * 0.42, -80 + index * -1.25], material: materials.paleStone });
+}
+
+function addPalace(addBox, materials) {
+  addBox({ size: [42, 8, 26], position: [42, 4, -96], material: materials.sandstone });
+  addBox({ size: [34, 1, 18], position: [42, 8.5, -96], material: materials.blueBrick });
+  addBox({ size: [20, 8, 18], position: [42, 12.5, -96], material: materials.plaster });
+  for (const x of [27, 34.5, 49.5, 57]) addBox({ size: [3.5, 12, 3.5], position: [x, 6, -82.5], material: materials.blueBrick });
+  addBox({ size: [13, 3, 2], position: [42, 9.5, -82.5], material: materials.brass, collision: false });
+}
+
+function addResourceBelt(addBox, materials) {
+  const palms = [[-132, 92], [-118, 112], [120, 104], [136, 76], [-138, -58], [132, -82], [-112, -126], [112, -132]];
+  palms.forEach(([x, z]) => addPalm(addBox, materials, x, z));
+  for (const [x, z] of [[-136, 36], [-128, 18], [128, 32], [136, 12], [-126, -104], [124, -112]]) {
+    addBox({ size: [0.8, 5.4, 0.8], position: [x, 2.7, z], material: materials.wood });
+    addBox({ size: [4.4, 1.2, 3], position: [x, 5.2, z], material: materials.foliage, collision: false });
+  }
+  for (const [x, z] of [[-108, 132], [-92, 135], [92, 135], [108, 130]]) {
+    addBox({ size: [6, 0.45, 4], position: [x, 0.23, z], material: materials.clay, collision: false });
+    addBox({ size: [0.9, 1.6, 0.9], position: [x - 1.6, 0.8, z], material: materials.clay });
+    addBox({ size: [0.9, 1.2, 0.9], position: [x + 1.5, 0.6, z + 0.8], material: materials.clay });
+  }
+}
+
+function addLivingCitizens(group, city) {
+  if (!city) return () => {};
+  const districtRoutes = {
+    gate: [[-30, 72], [-18, 72], [18, 72], [30, 72], [5, 82], [-5, 94]],
+    market: [[-34, 25], [-24, 25], [24, 25], [34, 25], [5, 15], [-5, 36]],
+    artisans: [[36, 25], [48, 25], [60, 25], [72, 25], [5, 18], [5, 32]],
+    canal: [[-82, 25], [-70, 25], [-58, 25], [-46, 25], [-34, 25], [-5, 18]],
+    temple: [[-70, -42], [-58, -42], [-46, -42], [-34, -42], [-22, -42], [-5, -52]],
+    citadel: [[22, -72], [34, -72], [46, -72], [58, -72], [70, -72], [5, -62]],
+  };
+  const homePositions = Object.fromEntries(CAPITAL_BUILDINGS.map((building) => [building.id, building.position]));
+  const actors = city.citizens.map((citizen, index) => {
+    const profile = createNpcSkin(citizen.race, citizen.gender, citizen.appearance);
+    const figure = createVoxelHumanoid(profile, WORLD_HUMANOID_SCALE);
+    const household = city.households.find((item) => item.id === citizen.householdId);
+    const start = homePositions[household.homeId] ?? districtRoutes[household.district][0];
+    figure.position.set(start[0] + (index % 3) - 1, 0, start[1] + (index % 2 ? 2 : -2));
+    figure.name = citizen.name;
+    figure.userData.npcId = citizen.id;
+    group.add(figure);
+    return { citizen, figure, target: new THREE.Vector3(figure.position.x, 0, figure.position.z), routeIndex: index, activityKey: '', elapsed: index * 0.31 };
+  });
+
+  return (deltaTime) => {
+    for (const actor of actors) {
+      actor.elapsed += deltaTime;
+      const activity = getCitizenActivity(actor.citizen, city);
+      actor.figure.visible = activity.type !== 'sleep' && activity.type !== 'home';
+      if (!actor.figure.visible) continue;
+      const route = districtRoutes[activity.district] ?? districtRoutes.market;
+      const activityKey = `${activity.type}:${activity.district}`;
+      if (activityKey !== actor.activityKey) {
+        actor.activityKey = activityKey;
+        actor.routeIndex %= route.length;
+        actor.figure.position.set(route[actor.routeIndex][0], 0, route[actor.routeIndex][1]);
+        actor.routeIndex = (actor.routeIndex + 1) % route.length;
+        actor.target.set(route[actor.routeIndex][0], 0, route[actor.routeIndex][1]);
+      }
+      if (actor.figure.position.distanceToSquared(actor.target) < 1.2) {
+        actor.routeIndex = (actor.routeIndex + 1) % route.length;
+        actor.target.set(route[actor.routeIndex][0], 0, route[actor.routeIndex][1]);
+      }
+      const direction = actor.target.clone().sub(actor.figure.position);
+      direction.y = 0;
+      const distance = direction.length();
+      if (distance > 0.15) {
+        direction.normalize();
+        actor.figure.position.addScaledVector(direction, Math.min(distance, deltaTime * 2.1));
+        actor.figure.rotation.y = Math.atan2(direction.x, direction.z);
+        poseVoxelHumanoid(actor.figure, 'walk', actor.elapsed, 1);
+      } else {
+        poseVoxelHumanoid(actor.figure, 'idle', actor.elapsed);
+      }
+    }
+  };
+}
+
+export function buildCapitalCell(rapier, world, context = {}) {
   const group = new THREE.Group();
   const materials = makeMaterials();
   const { addBox, interactive } = createBuilder(rapier, world, group);
 
-  addBox({ size: [80, 1, 80], position: [0, -0.5, 0], material: materials.sand });
-  addBox({ size: [7, 0.18, 72], position: [0, 0.09, 3], material: materials.road, collision: false });
-  addBox({ size: [46, 0.16, 7], position: [1, 0.1, -8], material: materials.road, collision: false });
-  addBox({ size: [12, 0.17, 3], position: [7.5, 0.1, 5.5], material: materials.road, collision: false });
-  addBox({ size: [11, 0.17, 3], position: [-8, 0.1, 6], material: materials.road, collision: false });
-  addBox({ size: [18, 0.18, 16], position: [0, 0.11, -8], material: materials.paleStone, collision: false });
-
-  const wallSections = [
-    [-24, 3, 0, 4, 6, 58], [24, 3, 0, 4, 6, 58],
-    [-15, 3, -29, 18, 6, 4], [15, 3, -29, 18, 6, 4],
-    [-17, 3, 29, 14, 6, 4], [17, 3, 29, 14, 6, 4],
-  ];
-  for (const [x, y, z, width, height, depth] of wallSections) {
-    addBox({ size: [width, height, depth], position: [x, y, z], material: materials.paleStone });
+  addBox({ size: [330, 1, 330], position: [0, -0.5, 0], material: materials.sand });
+  addBox({ size: [14, 0.12, 310], position: [-94, 0.08, 0], material: materials.water, collision: false });
+  addBox({ size: [9, 0.18, 292], position: [0, 0.1, 0], material: materials.road, collision: false });
+  for (const z of [88, 25, -42, -76]) addBox({ size: [274, 0.17, z === 25 ? 8 : 5], position: [0, 0.1, z], material: materials.road, collision: false });
+  for (const z of [82, 25, -42, -88]) addBox({ size: [22, 0.35, 16], position: [-94, 0.2, z], material: materials.paleStone });
+  addWallRing(addBox, materials, 126, 10, 4.5, 7, materials.clay);
+  addWallRing(addBox, materials, 78, 8, 3.5, 6, materials.paleStone);
+  for (const district of CAPITAL_DISTRICTS) {
+    addBox({ size: [52, 0.12, 36], position: [district.center[0], 0.08, district.center[1]], material: district.id === 'canal' ? materials.reeds : materials.sandstone, collision: false });
   }
-  for (const x of [-24, 24]) for (const z of [-29, 29]) {
-    addBox({ size: [6, 9, 6], position: [x, 4.5, z], material: materials.paleStone });
-  }
-  addBox({ size: [13, 4, 4], position: [0, 7.5, 29], material: materials.paleStone });
-  addBox({ size: [3, 11, 5], position: [-6.5, 5.5, 29], material: materials.paleStone });
-  addBox({ size: [3, 11, 5], position: [6.5, 5.5, 29], material: materials.paleStone });
-  for (const x of [-5.4, -3.6, -1.8, 0, 1.8, 3.6, 5.4]) {
-    addBox({ size: [0.9, 0.9, 0.9], position: [x, 9.9, 29], material: materials.paleStone, collision: false });
-  }
+  CAPITAL_BUILDINGS.forEach((building) => addPlannedBuilding(addBox, materials, building));
+  addZiggurat(addBox, materials);
+  addPalace(addBox, materials);
+  addResourceBelt(addBox, materials);
+  for (const [x, z] of [[-73, -62], [-62, -67], [-51, -62], [-73, -78], [-61, -82]]) addPalm(addBox, materials, x, z);
+  addMarketStall(addBox, materials, -11, 25, materials.turquoise);
+  addMarketStall(addBox, materials, 11, 25, materials.crimson);
+  addMarketStall(addBox, materials, -11, 36, materials.crimson);
+  addMarketStall(addBox, materials, 11, 36, materials.turquoise);
 
-  addBuilding(addBox, materials, 10, 1, 9, 9, 5.5, materials.crimson);
-  addBuilding(addBox, materials, -13, 1, 8, 10, 6.5);
-  addBuilding(addBox, materials, 14, -15, 9, 8, 7, materials.crimson);
-  addBuilding(addBox, materials, -14, -16, 8, 7, 5.5);
-  addBuilding(addBox, materials, 0, -23, 15, 8, 10, materials.turquoise);
+  const updateCitizens = addLivingCitizens(group, context.city);
 
-  const door = addBox({
-    size: [1.85, 3.05, 0.28], position: [10, 1.53, 5.58], material: materials.wood, collision: false,
-    name: 'Inn door', userData: { interaction: 'Enter The Brass Camel', portal: 'inn' },
-  });
-  door.castShadow = false;
-  addBox({ size: [2.6, 0.35, 0.5], position: [10, 3.22, 5.65], material: materials.brass, collision: false });
-  addBox({ size: [0.28, 3.45, 0.5], position: [8.95, 1.72, 5.65], material: materials.brass, collision: false });
-  addBox({ size: [0.28, 3.45, 0.5], position: [11.05, 1.72, 5.65], material: materials.brass, collision: false });
-
-  addMarketStall(addBox, materials, -7, -3, materials.turquoise);
-  addMarketStall(addBox, materials, 7, -3, materials.crimson);
-  addMarketStall(addBox, materials, -7, -13, materials.crimson);
-  addMarketStall(addBox, materials, 7, -13, materials.turquoise);
-  addBox({ size: [6, 0.3, 6], position: [0, 0.25, -8], material: materials.paleStone });
-  addBox({ size: [3.5, 0.4, 3.5], position: [0, 0.55, -8], material: materials.water, collision: false });
-  addBox({ size: [1.3, 2.8, 1.3], position: [0, 1.7, -8], material: materials.paleStone });
-  addBox({ size: [3.1, 0.35, 0.35], position: [0, 2.65, -8], material: materials.brass, collision: false });
-  addBox({ size: [0.35, 0.35, 3.1], position: [0, 2.65, -8], material: materials.brass, collision: false });
-  addPalm(addBox, materials, -8, 12);
-  addPalm(addBox, materials, 8, 14);
-  addPalm(addBox, materials, -18, -5);
-  addPalm(addBox, materials, 18, -6);
-  addCapitalCrowd(group);
-
-  return { group, interactive, ambient: '#d97632', fog: ['#dc8a45', 42, 115] };
+  return { group, interactive, update: updateCitizens, ambient: '#bd6d36', fog: ['#d58a4d', 95, 310] };
 }
 
 export function buildInnCell(rapier, world) {

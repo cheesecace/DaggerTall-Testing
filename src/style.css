@@ -91,3 +91,22 @@ legend { margin-bottom: 7px; color: #c79b68; text-transform: uppercase; font-siz
 .cell-card span { color: var(--sun); font-size: 9px; }
 .cell-card strong { margin-top: 4px; font: 25px 'IM Fell English', serif; text-transform: none; }
 
+.world-map { position: absolute; inset: 7vh 8vw; display: grid; grid-template-rows: auto 1fr auto; gap: 14px; padding: 24px; color: #f4dfb3; background: #20120ff2; border: 2px solid #bd814d; box-shadow: 0 20px 80px #090504; opacity: 0; transform: translateY(15px); transition: opacity 180ms, transform 180ms; visibility: hidden; }
+.world-map.visible { opacity: 1; transform: translateY(0); visibility: visible; }
+.world-map header { display: flex; justify-content: space-between; align-items: end; border-bottom: 1px solid #6d4632; padding-bottom: 12px; }
+.world-map header span, .world-map header > strong { color: #c79059; font-size: 9px; }
+.world-map h2 { margin: 3px 0 0; font: 30px 'IM Fell English', serif; text-transform: none; }
+.map-layout { min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.map-panel { min-width: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto auto; border-left: 3px solid #8d5136; padding-left: 14px; }
+.map-panel canvas { width: min(100%, 46vh); height: min(100%, 46vh); align-self: center; justify-self: center; image-rendering: pixelated; border: 1px solid #7f5439; background: #25150f; }
+.map-panel h3 { margin: 10px 0 2px; color: #e8bd6a; font-size: 13px; }
+.map-panel p { margin: 0; color: #b99a7c; font-size: 9px; }
+.world-map footer { display: flex; flex-wrap: wrap; gap: 18px; color: #bd9e7d; font-size: 8px; border-top: 1px solid #6d4632; padding-top: 10px; }
+
+@media (max-width: 760px) {
+	.world-map { inset: 3vh 3vw; padding: 14px; }
+	.map-layout { grid-template-columns: 1fr; overflow-y: auto; }
+	.map-panel canvas { width: min(100%, 34vh); height: auto; }
+	.world-map h2 { font-size: 22px; }
+}
+

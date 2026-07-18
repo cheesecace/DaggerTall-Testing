@@ -42,6 +42,7 @@ export function createVoxelHumanoid(character, scale = 1) {
   for (const part of HUMANOID_PARTS) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(...part.size), createPaperdollMaterials(character, part.part));
     mesh.position.set(...part.position);
+    mesh.name = part.id;
     group.add(mesh);
   }
 

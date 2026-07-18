@@ -4,8 +4,8 @@ export const CELL_DEFINITIONS = {
     name: 'Qadira, Gate of the Red Sun',
     type: 'exterior',
     anchors: {
-      arrival: [0, 1.05, 26],
-      innDoor: [10, 1.05, 5.5],
+      arrival: [0, 1.05, 116],
+      innDoor: [27, 1.05, 22.2],
     },
     portals: {
       inn: { destination: 'brass-camel-inn', anchor: 'entrance' },

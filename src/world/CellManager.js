@@ -3,9 +3,10 @@ import { CELL_BUILDERS } from './cellBuilders.js';
 import { CELL_DEFINITIONS } from './cellDefinitions.js';
 
 export class CellManager {
-  constructor({ scene, rapier }) {
+  constructor({ scene, rapier, context = {} }) {
     this.scene = scene;
     this.rapier = rapier;
+    this.context = context;
     this.current = null;
   }
 
@@ -24,7 +25,7 @@ export class CellManager {
     }
 
     const physicsWorld = new this.rapier.World({ x: 0, y: -28, z: 0 });
-    const built = builder(this.rapier, physicsWorld);
+    const built = builder(this.rapier, physicsWorld, this.context);
     this.scene.add(built.group);
     this.scene.background = new THREE.Color(built.ambient);
     this.scene.fog = new THREE.Fog(...built.fog);
