@@ -66,16 +66,26 @@ export const RACE_SKIN = {
 const HAIR = ['#171416', '#2b1c18', '#4a2b1e', '#6b3d24', '#9a6638', '#d0aa68', '#e8dac0', '#5b4a58', '#253b3c', '#7b3030'];
 
 export const GARMENTS = [
-  ['#b43f2d', '#67251f', '#e0b252', '#35251f'],
-  ['#287f84', '#155157', '#d5a449', '#352f2b'],
-  ['#5c7540', '#34472d', '#c79845', '#332a25'],
-  ['#725074', '#3e3048', '#d6b461', '#28232c'],
-  ['#c0772f', '#70401f', '#e3c171', '#412a22'],
-  ['#455d89', '#293953', '#d2ae55', '#292534'],
-  ['#9d3150', '#5a2038', '#e1bd63', '#352329'],
-  ['#d1b16a', '#8b6a39', '#2d777a', '#392b24'],
-  ['#4d6d68', '#294844', '#c27e4a', '#242c2b'],
-  ['#7e3f2d', '#48271e', '#b5a15b', '#302520'],
+  ['Desert Crimson', '#b43f2d', '#67251f', '#e0b252', '#35251f'],
+  ['Oasis Turquoise', '#287f84', '#155157', '#d5a449', '#352f2b'],
+  ['Ranger Moss', '#5c7540', '#34472d', '#c79845', '#332a25'],
+  ['Oracle Violet', '#725074', '#3e3048', '#d6b461', '#28232c'],
+  ['Saffron Ember', '#c0772f', '#70401f', '#e3c171', '#412a22'],
+  ['Royal Blue', '#455d89', '#293953', '#d2ae55', '#292534'],
+  ['Rose Garnet', '#9d3150', '#5a2038', '#e1bd63', '#352329'],
+  ['Sand And Teal', '#d1b16a', '#8b6a39', '#2d777a', '#392b24'],
+  ['Weathered Jade', '#4d6d68', '#294844', '#c27e4a', '#242c2b'],
+  ['Canyon Rust', '#7e3f2d', '#48271e', '#b5a15b', '#302520'],
+  ['Moon Silver', '#aeb8c2', '#59636f', '#dfe1cf', '#30323a'],
+  ['Black And Gold', '#252329', '#111115', '#d1a74d', '#3a2b21'],
+  ['Desert Pastel', '#d89587', '#875a59', '#f0c983', '#51413d'],
+  ['Crimson Steel', '#8f3037', '#462830', '#a9afb0', '#29272b'],
+  ['Forest Teal', '#26716b', '#194844', '#95bd77', '#272e2b'],
+  ['Salt White', '#ded8c7', '#8d887f', '#b89b57', '#423d3a'],
+  ['Deep Royal Blue', '#304d91', '#1e2e57', '#d6b85f', '#242538'],
+  ['Orchid And Brass', '#925b91', '#513752', '#c79c4f', '#302632'],
+  ['Jade And Ivory', '#4f8069', '#2d4c41', '#e2d6ae', '#27312e'],
+  ['Sunset Jewel', '#b54f5c', '#672f48', '#54a6a0', '#312633'],
 ];
 
 function rotateColorList(list, offset) {
@@ -91,7 +101,7 @@ export function createNpcSkin(race, gender, variantIndex) {
   const genderOffset = gender === 'female' ? 3 : 0;
   const raceOffset = race === 'orc' ? 2 : race === 'elf' ? 5 : 0;
   const skin = rotateColorList(RACE_SKIN[race], index + genderOffset);
-  const garment = rotateColorList(GARMENTS, index + genderOffset + raceOffset);
+  const garment = rotateColorList(GARMENTS, index + genderOffset + raceOffset).slice(1);
   return {
     id: `${race}-${gender}-${String(index + 1).padStart(2, '0')}`,
     name: `${title} ${index + 1}`,
@@ -133,5 +143,5 @@ export function getComplexionOptions(race) {
 }
 
 export function getGarmentOptions() {
-  return GARMENTS.map((colors) => [...colors]);
+  return GARMENTS.map(([name, ...colors]) => ({ name, colors: [...colors] }));
 }

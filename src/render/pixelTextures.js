@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { RACES } from '../data/characters.js';
 import { resolveArmorSkin } from '../data/armorSkins.js';
+import { resolveCapeSkin } from '../data/capeSkins.js';
 
 const textureCache = new Map();
 
@@ -131,6 +132,7 @@ export function getPaperdollDesign(character) {
   };
   const clothingCut = character.visual?.clothingCut ?? 'simple-tunic';
   const armor = resolveArmorSkin(character.armorId, character.race, character.gender);
+  const cape = resolveCapeSkin(character.capeId, character.race, character.gender);
   return {
     skin: character.visual?.skin ?? fallback.skin,
     shadow: character.visual?.shadow ?? fallback.shadow,
@@ -147,7 +149,13 @@ export function getPaperdollDesign(character) {
     legwear: character.visual?.legwear ?? `${clothingCut}-legwear`,
     gender: character.gender ?? 'unspecified',
     armor,
+    cape,
   };
+}
+
+export function getEarDesign(character) {
+  const design = getPaperdollDesign(character);
+  return { skin: design.skin, shadow: design.shadow };
 }
 
 function stringSignature(value) {
@@ -245,6 +253,39 @@ function legwearTexture(key, design) {
     context.fillStyle = colors[2]; context.fillRect(0, 10, 16, 1);
     if ((signature & 1) === 1) { context.fillStyle = colors[1]; context.fillRect(2, 12, 12, 2); }
   });
+}
+
+function capeTexture(key, cape, face) {
+  return canvasTexture(key, (context) => {
+    const [base, dark, accent, lining] = cape.palette;
+    context.fillStyle = face === 'front' ? lining : base;
+    context.fillRect(0, 0, 16, 16);
+    context.fillStyle = dark;
+    context.fillRect(0, 0, 2, 16); context.fillRect(14, 0, 2, 16);
+    if (cape.pattern === 'heraldic') {
+      context.fillStyle = accent; context.fillRect(7, 2, 2, 11); context.fillRect(4, 5, 8, 2);
+    } else if (cape.pattern === 'quartered') {
+      context.fillStyle = dark; context.fillRect(0, 0, 8, 8); context.fillRect(8, 8, 8, 8);
+      context.fillStyle = accent; context.fillRect(7, 0, 2, 16); context.fillRect(0, 7, 16, 2);
+    } else if (cape.pattern === 'bordered') {
+      context.fillStyle = accent; context.fillRect(2, 2, 12, 2); context.fillRect(2, 12, 12, 2);
+    } else {
+      context.fillStyle = accent;
+      [[3, 3], [10, 2], [7, 7], [4, 11], [11, 12]].forEach(([x, y]) => context.fillRect(x, y, 2, 2));
+    }
+    context.fillStyle = accent;
+    if (cape.race === 'orc') { context.fillRect(3, 5, 2, 6); context.fillRect(11, 5, 2, 6); }
+    else if (cape.race === 'elf') { context.fillRect(6, 4, 4, 7); context.fillStyle = base; context.fillRect(8, 4, 3, 5); }
+    if (cape.gender === 'female') { context.fillStyle = accent; context.fillRect(3, 14, 3, 2); context.fillRect(10, 14, 3, 2); }
+    else { context.fillStyle = dark; context.fillRect(6, 13, 4, 3); }
+  });
+}
+
+export function createCapeMaterials(character) {
+  const cape = getPaperdollDesign(character).cape;
+  if (!cape) return null;
+  const material = (face) => new THREE.MeshLambertMaterial({ map: capeTexture(`cape:${cape.id}:${face}`, cape, face) });
+  return [material('side'), material('side'), material('top'), material('bottom'), material('front'), material('back')];
 }
 
 function drawHair(context, face, design) {
@@ -482,6 +523,12 @@ export function createPaperdollMaterials(character, part) {
   const identityKey = character.id ?? `${character.race}:${character.appearance}:${character.classId}:${character.gender ?? 'player'}`;
   const key = `${identityKey}:${part}`;
   const material = (texture) => new THREE.MeshLambertMaterial({ map: texture });
+
+  if (part === 'ear') {
+    const ear = getEarDesign(character);
+    const texture = skinTexture(`${key}:ear`, ear.skin, ear.shadow);
+    return Array.from({ length: 6 }, () => material(texture));
+  }
 
   if (part === 'head') {
     if (design.armor && design.armor.helmetCoverage !== 'open') {

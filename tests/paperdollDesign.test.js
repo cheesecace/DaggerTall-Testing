@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getPaperdollDesign } from '../src/render/pixelTextures.js';
+import { getEarDesign, getPaperdollDesign } from '../src/render/pixelTextures.js';
 import { HUMANOID_PARTS, WORLD_HUMANOID_EYE_HEIGHT, WORLD_HUMANOID_SCALE } from '../src/render/voxel.js';
 import { getArmorSkins } from '../src/data/armorSkins.js';
 
@@ -29,6 +29,14 @@ describe('voxel paperdoll design', () => {
     const design = getPaperdollDesign({ race: 'orc', gender: 'female', appearance: 0, classId: 'warrior', armorId: armor.id });
     expect(design.armor).toEqual(armor);
     expect(design.torso).toEqual(armor.palette);
+    expect(HUMANOID_PARTS).toHaveLength(6);
+  });
+
+  it('keeps elf ears skin-colored when a full helmet is selected', () => {
+    const armor = getArmorSkins('elf', 'female').find((item) => item.helmetCoverage === 'full');
+    const character = { race: 'elf', gender: 'female', appearance: 0, classId: 'warrior', armorId: armor.id, visual: { skin: '#9f7f91', shadow: '#5f4658' } };
+    expect(getEarDesign(character)).toEqual({ skin: '#9f7f91', shadow: '#5f4658' });
+    expect(getEarDesign(character).skin).not.toBe(armor.palette[0]);
     expect(HUMANOID_PARTS).toHaveLength(6);
   });
 });

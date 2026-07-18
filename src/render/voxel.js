@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createPaperdollMaterials } from './pixelTextures.js';
+import { createCapeMaterials, createPaperdollMaterials } from './pixelTextures.js';
 
 export const HUMANOID_PARTS = [
   { id: 'head', part: 'head', size: [0.9, 0.9, 0.9], position: [0, 2.75, 0] },
@@ -45,10 +45,15 @@ export function createVoxelHumanoid(character, scale = 1) {
     group.add(mesh);
   }
 
+  const capeMaterials = createCapeMaterials(character);
+  if (capeMaterials) {
+    group.add(createCuboid({ size: [1.2, 1.55, 0.12], position: [0, 1.58, -0.4], material: capeMaterials, name: 'cape' }));
+  }
+
   if (character.race === 'elf') {
-    const earMaterial = createPaperdollMaterials(character, 'head')[0];
-    group.add(createCuboid({ size: [0.35, 0.18, 0.35], position: [-0.58, 2.78, 0], material: earMaterial }));
-    group.add(createCuboid({ size: [0.35, 0.18, 0.35], position: [0.58, 2.78, 0], material: earMaterial }));
+    const earMaterials = createPaperdollMaterials(character, 'ear');
+    group.add(createCuboid({ size: [0.35, 0.18, 0.35], position: [-0.58, 2.78, 0], material: earMaterials }));
+    group.add(createCuboid({ size: [0.35, 0.18, 0.35], position: [0.58, 2.78, 0], material: earMaterials }));
   }
   if (character.race === 'orc') {
     const tuskMaterial = new THREE.MeshLambertMaterial({ color: '#efe0bc' });

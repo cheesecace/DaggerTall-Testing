@@ -46,5 +46,6 @@ export const DEFAULT_CHARACTER = {
   marking: null,
   clothingCut: null,
   armorId: 'none',
+  capeId: 'none',
   classId: 'warrior',
 };
