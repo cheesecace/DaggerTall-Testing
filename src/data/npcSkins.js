@@ -110,6 +110,7 @@ export function createNpcSkin(race, gender, variantIndex) {
       hairStyle,
       marking,
       clothingCut,
+      legwear: `${race}-${gender}-${clothingCut}-legwear`,
       title,
     },
   };

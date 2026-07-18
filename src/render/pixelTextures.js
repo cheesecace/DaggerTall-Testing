@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RACES } from '../data/characters.js';
+import { resolveArmorSkin } from '../data/armorSkins.js';
 
 const textureCache = new Map();
 
@@ -128,21 +129,122 @@ export function getPaperdollDesign(character) {
     warrior: ['#9e3f2d', '#602821', '#d5aa54', '#3d2d28'], ranger: ['#557344', '#30482f', '#b98c49', '#392f26'],
     mage: ['#228b96', '#15535d', '#d7b85c', '#34294b'], rogue: ['#644c68', '#352d43', '#bc8b4e', '#292326'],
   };
+  const clothingCut = character.visual?.clothingCut ?? 'simple-tunic';
+  const armor = resolveArmorSkin(character.armorId, character.race, character.gender);
   return {
     skin: character.visual?.skin ?? fallback.skin,
     shadow: character.visual?.shadow ?? fallback.shadow,
     hair: character.visual?.hair ?? fallback.hair,
     eyes: character.visual?.eyes ?? fallback.eyes,
-    torso: [...(character.visual?.garment ?? classColors[character.classId] ?? classColors.warrior)],
+    torso: [...(armor?.palette ?? character.visual?.garment ?? classColors[character.classId] ?? classColors.warrior)],
     face: `${character.race}:${character.visual?.marking ?? 'plain'}:${character.gender ?? 'unspecified'}`,
     hands: character.visual?.skin ?? fallback.skin,
     boots: '#241d1b',
     motif: character.visual?.motif ?? 'sun',
     hairStyle: character.visual?.hairStyle ?? 'cropped',
     marking: character.visual?.marking ?? 'plain',
-    clothingCut: character.visual?.clothingCut ?? 'simple-tunic',
+    clothingCut,
+    legwear: character.visual?.legwear ?? `${clothingCut}-legwear`,
     gender: character.gender ?? 'unspecified',
+    armor,
   };
+}
+
+function stringSignature(value) {
+  return [...value].reduce((total, character) => (total * 31 + character.charCodeAt(0)) >>> 0, 7);
+}
+
+function drawArmorSurface(context, design, region) {
+  const armor = design.armor;
+  const [base, dark, accent, under] = armor.palette;
+  const signature = stringSignature(armor.id);
+  context.fillStyle = base; context.fillRect(0, 0, 16, 16);
+  context.fillStyle = under; context.fillRect(0, 13, 16, 3);
+  context.fillStyle = dark;
+  if (armor.family === 'desert') {
+    for (let y = 1; y < 13; y += 3) context.fillRect(y % 2 ? 1 : 3, y, 12, 1);
+    context.fillStyle = accent; context.fillRect(7, 0, 2, 13);
+  } else if (armor.family === 'western') {
+    context.fillRect(0, 0, 3, 16); context.fillRect(13, 0, 3, 16); context.fillRect(0, 6, 16, 2);
+    context.fillStyle = accent; context.fillRect(4, 2, 8, 1); context.fillRect(5, 10, 6, 1);
+  } else if (armor.family === 'barbarian') {
+    context.fillRect(0, 0, 16, 4); context.fillRect(1, 8, 5, 5); context.fillRect(10, 6, 5, 6);
+    context.fillStyle = accent; context.fillRect(2, 4, 2, 8); context.fillRect(12, 3, 2, 10);
+  } else {
+    context.fillRect(1, 1, 14, 2); context.fillRect(2, 11, 12, 2);
+    context.fillStyle = accent; context.fillRect(7, 2, 2, 10); context.fillRect(4, 5, 8, 2);
+  }
+  if (region === 'arm') { context.fillStyle = accent; context.fillRect(0, 4, 16, 2); context.fillRect(0, 10, 16, 2); }
+  context.fillStyle = accent;
+  if (armor.race === 'human') {
+    context.fillRect(7, 3, 2, 7); context.fillRect(5, 5, 6, 2);
+  } else if (armor.race === 'orc') {
+    context.fillRect(3, 3, 2, 7); context.fillRect(11, 3, 2, 7); context.fillRect(5, 8, 6, 2);
+  } else {
+    [[4, 4], [10, 3], [7, 8]].forEach(([x, y]) => context.fillRect(x, y, 2, 2));
+  }
+  const detailY = 2 + (signature % 9);
+  context.fillStyle = (signature & 1) === 0 ? dark : accent;
+  context.fillRect(1, detailY, 3, 1); context.fillRect(12, 12 - (detailY % 7), 3, 1);
+  if (armor.gender === 'female') {
+    context.fillStyle = accent; context.fillRect(2, 1, 2, 2); context.fillRect(12, 1, 2, 2); context.fillRect(7, 11, 2, 2);
+  } else {
+    context.fillStyle = dark; context.fillRect(1, 1, 4, 2); context.fillRect(11, 1, 4, 2);
+  }
+}
+
+function armorTexture(key, design, region) {
+  return canvasTexture(key, (context) => drawArmorSurface(context, design, region));
+}
+
+function helmetTexture(key, design, face) {
+  const armor = design.armor;
+  return canvasTexture(key, (context) => {
+    drawArmorSurface(context, design, 'head');
+    const [, dark, accent] = armor.palette;
+    if (face === 'front') {
+      context.fillStyle = dark;
+      if (armor.helmetCoverage === 'eye-slit') {
+        context.fillRect(2, 7, 12, 3);
+        context.fillStyle = design.eyes; context.fillRect(4, 8, 2, 1); context.fillRect(10, 8, 2, 1);
+      } else {
+        context.fillRect(3, 6, 10, 2); context.fillRect(7, 8, 2, 6);
+        context.fillStyle = accent; context.fillRect(2, 2, 12, 2);
+      }
+    } else if (face === 'side') {
+      context.fillStyle = dark; context.fillRect(11, 6, 5, 8);
+    } else if (face === 'top') {
+      context.fillStyle = accent; context.fillRect(6, 0, 4, 16);
+    } else if (face === 'back') {
+      context.fillStyle = dark; context.fillRect(0, 11, 16, 5);
+    }
+    if (face === 'front' || face === 'top') {
+      context.fillStyle = accent;
+      if (armor.gender === 'female') { context.fillRect(7, 1, 2, 2); context.fillRect(5, 2, 6, 1); }
+      else context.fillRect(6, 0, 4, 4);
+    }
+  });
+}
+
+function legwearTexture(key, design) {
+  if (design.armor) return armorTexture(key, design, 'leg');
+  const colors = design.torso;
+  const signature = stringSignature(design.legwear);
+  return makeFaceTexture(key, colors[3], (context) => {
+    const construction = signature % 5;
+    context.fillStyle = colors[0];
+    if (construction === 0) { context.fillRect(1, 0, 14, 7); context.fillRect(3, 7, 10, 3); }
+    else if (construction === 1) { context.fillRect(0, 0, 5, 12); context.fillRect(11, 0, 5, 12); }
+    else if (construction === 2) { context.fillRect(0, 0, 16, 4); context.fillRect(2, 6, 12, 3); }
+    else if (construction === 3) { context.fillRect(0, 0, 16, 9); context.fillStyle = colors[1]; context.fillRect(5, 0, 6, 9); }
+    else { context.fillRect(2, 0, 12, 12); context.fillStyle = colors[1]; context.fillRect(0, 4, 16, 2); }
+    context.fillStyle = colors[2];
+    const trimY = 3 + (signature % 7); context.fillRect(0, trimY, 16, 1);
+    const trimX = 2 + ((signature >>> 3) % 10); context.fillRect(trimX, 1, 2, 10);
+    context.fillStyle = '#241d1b'; context.fillRect(0, 11, 16, 5);
+    context.fillStyle = colors[2]; context.fillRect(0, 10, 16, 1);
+    if ((signature & 1) === 1) { context.fillStyle = colors[1]; context.fillRect(2, 12, 12, 2); }
+  });
 }
 
 function drawHair(context, face, design) {
@@ -382,6 +484,10 @@ export function createPaperdollMaterials(character, part) {
   const material = (texture) => new THREE.MeshLambertMaterial({ map: texture });
 
   if (part === 'head') {
+    if (design.armor && design.armor.helmetCoverage !== 'open') {
+      const side = helmetTexture(`${key}:helmet-side`, design, 'side');
+      return [side, side, helmetTexture(`${key}:helmet-top`, design, 'top'), helmetTexture(`${key}:helmet-bottom`, design, 'bottom'), helmetTexture(`${key}:helmet-front`, design, 'front'), helmetTexture(`${key}:helmet-back`, design, 'back')].map(material);
+    }
     const side = makeFaceTexture(`${key}:side`, skin.skin, (context) => {
       drawHair(context, 'side', design);
       context.fillStyle = skin.shadow; context.fillRect(12, 11, 4, 5); context.fillRect(4, 14, 8, 2);
@@ -405,10 +511,18 @@ export function createPaperdollMaterials(character, part) {
     return [side, side, top, skinTexture(`${key}:bottom`, skin.shadow), front, back].map(material);
   }
   if (part === 'torso') {
+    if (design.armor) {
+      const armor = armorTexture(`${key}:armor-torso`, design, 'torso');
+      return Array.from({ length: 6 }, () => material(armor));
+    }
     const side = garmentTexture(`${key}:side`, cloth, false);
     return [side, side, garmentTexture(`${key}:top`, cloth, false), garmentTexture(`${key}:bottom`, cloth, false), identityGarmentTexture(`${key}:front`, design), identityGarmentTexture(`${key}:back`, design, 'back')].map(material);
   }
   if (part === 'arm') {
+    if (design.armor) {
+      const armor = armorTexture(`${key}:armor-arm`, design, 'arm');
+      return Array.from({ length: 6 }, () => material(armor));
+    }
     const armoredSleeve = ['lamellar', 'officer-plate', 'scale-tabard'].includes(design.clothingCut);
     const sleeve = makeFaceTexture(`${key}:sleeve`, cloth[0], (context) => {
       context.fillStyle = cloth[1]; context.fillRect(0, 0, 3, 16); context.fillRect(13, 0, 3, 16);
@@ -418,10 +532,6 @@ export function createPaperdollMaterials(character, part) {
     const hand = skinTexture(`${key}:hand`, skin.skin, skin.shadow);
     return [sleeve, sleeve, sleeve, hand, sleeve, sleeve].map(material);
   }
-  const trouser = makeFaceTexture(`${key}:trouser`, cloth[3], (context) => {
-    context.fillStyle = '#241d1b'; context.fillRect(0, 10, 16, 6);
-    context.fillStyle = cloth[2]; context.fillRect(0, 9, 16, 1);
-    context.fillStyle = '#765335'; context.fillRect(2, 12, 12, 2);
-  });
-  return Array.from({ length: 6 }, () => material(trouser));
+  const legwear = legwearTexture(`${key}:legwear:${design.legwear}:${design.armor?.id ?? 'clothing'}`, design);
+  return Array.from({ length: 6 }, () => material(legwear));
 }

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CLASSES, DEFAULT_CHARACTER, RACES } from '../data/characters.js';
 import { createNpcSkin, getComplexionOptions, getGarmentOptions, NPC_FACE_MARKINGS, NPC_HAIR_STYLES, NPC_IDENTITIES } from '../data/npcSkins.js';
+import { getArmorSkins } from '../data/armorSkins.js';
 import { createVoxelHumanoid } from '../render/voxel.js';
 
 function displayName(value) {
@@ -29,6 +30,7 @@ export class CharacterCreator {
     const hairStyle = this.character.hairStyle ?? preset.visual.hairStyle;
     const marking = this.character.marking ?? preset.visual.marking;
     const clothingCut = this.character.clothingCut ?? preset.visual.clothingCut;
+    const armorOptions = getArmorSkins(this.character.race, gender);
     this.root.innerHTML = `
       <div class="creator-brand">
         <p class="eyebrow">A life begins beneath the red sun</p>
@@ -46,14 +48,15 @@ export class CharacterCreator {
         <fieldset><legend>Race</legend><div class="choice-grid race-grid">
           ${Object.entries(RACES).map(([id, item]) => `<button type="button" class="choice ${id === this.character.race ? 'selected' : ''}" data-race="${id}"><strong>${item.name}</strong><span>${item.description}</span></button>`).join('')}
         </div></fieldset>
-        <fieldset><legend>Appearance</legend><div class="appearance-grid">
+        <fieldset class="appearance-fieldset"><legend>Appearance</legend><div class="appearance-scroll"><div class="appearance-grid">
           <label>Coordinated look<select data-custom="preset">${optionList(NPC_IDENTITIES[gender].map((identity, index) => ({ value: String(index), label: identity[0] })), String(this.character.preset))}</select></label>
           <label>Complexion<select data-custom="appearance">${optionList(getComplexionOptions(this.character.race).map((option, index) => ({ value: String(index), label: `${displayName(this.character.race)} Tone ${index + 1}` })), String(this.character.appearance))}</select></label>
           <label>Hair & headwear<select data-custom="hairStyle">${optionList(NPC_HAIR_STYLES[gender].map((value) => ({ value, label: displayName(value) })), hairStyle)}</select></label>
           <label>Facial detail<select data-custom="marking">${optionList(NPC_FACE_MARKINGS.map((value) => ({ value, label: displayName(value) })), marking)}</select></label>
           <label>Outfit cut<select data-custom="clothingCut">${optionList(NPC_IDENTITIES[gender].map((identity) => ({ value: identity[5], label: displayName(identity[5]) })), clothingCut)}</select></label>
           <label>Cloth palette<select data-custom="garmentPalette">${optionList(getGarmentOptions().map((colors, index) => ({ value: String(index), label: `Desert Palette ${index + 1}` })), String(this.character.garmentPalette))}</select></label>
-        </div></fieldset>
+          <label class="armor-field">Armor<select data-custom="armorId">${optionList([{ value: 'none', label: 'No Armor' }, ...armorOptions.map((armor) => ({ value: armor.id, label: `${armor.name} · ${displayName(armor.family)} · ${displayName(armor.helmetCoverage)}` }))], this.character.armorId)}</select></label>
+        </div></div></fieldset>
         <fieldset><legend>Class</legend><div class="choice-grid class-grid">
           ${Object.entries(CLASSES).map(([id, item]) => `<button type="button" class="choice class-choice ${id === this.character.classId ? 'selected' : ''}" data-class="${id}" style="--class-color:${item.color}"><b>${item.icon}</b><strong>${item.name}</strong><span>${item.description}</span></button>`).join('')}
         </div></fieldset>
@@ -71,6 +74,7 @@ export class CharacterCreator {
     this.root.querySelectorAll('[data-race]').forEach((button) => button.addEventListener('click', () => {
       this.character.race = button.dataset.race;
       this.character.appearance = 0;
+      this.character.armorId = 'none';
       this.render();
     }));
     this.root.querySelectorAll('[data-gender]').forEach((button) => button.addEventListener('click', () => {
@@ -79,6 +83,7 @@ export class CharacterCreator {
       this.character.hairStyle = null;
       this.character.marking = null;
       this.character.clothingCut = null;
+      this.character.armorId = 'none';
       this.render();
     }));
     this.root.querySelectorAll('[data-custom]').forEach((select) => select.addEventListener('change', () => {
@@ -118,7 +123,8 @@ export class CharacterCreator {
       marking: character.marking ?? preset.visual.marking,
       clothingCut: character.clothingCut ?? preset.visual.clothingCut,
     };
-    character.id = ['player', character.race, character.gender, character.preset, character.appearance, character.garmentPalette, character.visual.hairStyle, character.visual.marking, character.visual.clothingCut, character.classId].join(':');
+    character.visual.legwear = `${character.race}-${character.gender}-${character.visual.clothingCut}-legwear`;
+    character.id = ['player', character.race, character.gender, character.preset, character.appearance, character.garmentPalette, character.visual.hairStyle, character.visual.marking, character.visual.clothingCut, character.armorId, character.classId].join(':');
     return character;
   }
 
@@ -146,6 +152,7 @@ export class CharacterCreator {
   disposePreview() {
     if (this.previewFrame) cancelAnimationFrame(this.previewFrame);
     this.previewRenderer?.dispose();
+    this.previewRenderer?.forceContextLoss();
     this.previewFrame = null;
     this.previewRenderer = null;
   }

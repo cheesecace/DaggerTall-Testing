@@ -39,6 +39,12 @@ legend { margin-bottom: 7px; color: #c79b68; text-transform: uppercase; font-siz
 .swatch span { position: absolute; inset: auto 0 0; padding: 2px; color: white; background: #130f0dc4; font-size: 9px; }
 .swatch.selected { outline: 2px solid var(--sun); outline-offset: 2px; }
 .appearance-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.appearance-scroll { max-height: 180px; overflow-y: auto; padding: 3px 8px 4px 3px; scrollbar-color: #a66d3d #1b1411; scrollbar-width: thin; }
+.appearance-scroll::-webkit-scrollbar { width: 8px; }
+.appearance-scroll::-webkit-scrollbar-track { background: #1b1411; }
+.appearance-scroll::-webkit-scrollbar-thumb { background: #a66d3d; border: 2px solid #1b1411; }
+.appearance-fieldset legend { position: sticky; top: 0; z-index: 1; }
+.armor-field { grid-column: 1 / -1; }
 .appearance-grid label { display: grid; gap: 4px; min-width: 0; color: #a98f76; font-size: 10px; text-transform: uppercase; }
 .appearance-grid select { width: 100%; min-width: 0; border: 1px solid #594033; border-left: 2px solid #a66d3d; padding: 7px 26px 7px 8px; color: #f1d6a6; background: #1b1411; outline: none; cursor: pointer; }
 .appearance-grid select:focus { border-color: var(--sun); }

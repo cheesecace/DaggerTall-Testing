@@ -6,11 +6,13 @@ describe('NPC paperdoll catalog', () => {
     const catalog = createNpcSkinCatalog();
     expect(catalog).toHaveLength(NPC_SKIN_COUNT);
     expect(new Set(catalog.map((skin) => skin.id)).size).toBe(120);
+    expect(new Set(catalog.map((skin) => skin.visual.legwear)).size).toBe(120);
     for (const race of ['human', 'orc', 'elf']) {
       for (const gender of ['female', 'male']) {
         const group = catalog.filter((skin) => skin.race === race && skin.gender === gender);
         expect(group).toHaveLength(20);
         expect(new Set(group.map((skin) => JSON.stringify(skin.visual))).size).toBe(20);
+        expect(new Set(group.map((skin) => skin.visual.legwear)).size).toBe(20);
       }
     }
   });

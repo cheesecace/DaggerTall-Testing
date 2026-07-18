@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getPaperdollDesign } from '../src/render/pixelTextures.js';
 import { HUMANOID_PARTS, WORLD_HUMANOID_EYE_HEIGHT, WORLD_HUMANOID_SCALE } from '../src/render/voxel.js';
+import { getArmorSkins } from '../src/data/armorSkins.js';
 
 describe('voxel paperdoll design', () => {
   it('assigns distinct semantic surfaces to each body region', () => {
@@ -21,5 +22,13 @@ describe('voxel paperdoll design', () => {
   it('defines one shared world scale and eye height for player and NPC alignment', () => {
     expect(WORLD_HUMANOID_SCALE).toBe(0.72);
     expect(WORLD_HUMANOID_EYE_HEIGHT).toBeCloseTo(1.98);
+  });
+
+  it('resolves owned armor without changing shared humanoid geometry', () => {
+    const armor = getArmorSkins('orc', 'female')[8];
+    const design = getPaperdollDesign({ race: 'orc', gender: 'female', appearance: 0, classId: 'warrior', armorId: armor.id });
+    expect(design.armor).toEqual(armor);
+    expect(design.torso).toEqual(armor.palette);
+    expect(HUMANOID_PARTS).toHaveLength(6);
   });
 });

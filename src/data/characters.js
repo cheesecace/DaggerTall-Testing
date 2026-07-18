@@ -45,5 +45,6 @@ export const DEFAULT_CHARACTER = {
   hairStyle: null,
   marking: null,
   clothingCut: null,
+  armorId: 'none',
   classId: 'warrior',
 };
