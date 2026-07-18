@@ -61,7 +61,15 @@ Armor is resolved after the selected appearance preset and independent customiza
 - Side, top, and back head faces receive matching helmet materials for covered helmets.
 - Skin remains visible only where the armor record explicitly permits it.
 
+Armor leg textures are authored as part of each set. Plate harness uses greaves, poleyns, and sabatons; desert sets use mail, boots, wrapped trousers, and scale panels; barbarian sets use hide, fur, bindings, and scavenged plates. They must not fall back to the generic shared trouser texture.
+
 Texture cache keys include the armor ID so live creator changes cannot reuse stale materials. Unknown armor IDs fall back to `none` rather than producing a broken paperdoll.
+
+## Coordinated Legwear
+
+Every non-armor coordinated look receives a distinct lower-garment design derived from its clothing identity. The renderer uses an explicit legwear pattern identifier rather than one shared trouser painter. Patterns include fitted trousers, split robes, layered skirts over trousers, wrapped calves, tall boots, plated knees, patchwork, apron tails, dancer silks, fur leggings, officer greaves, and ceremonial hems.
+
+Female and male identity catalogs may share construction families, but their complete pattern, trim, and palette combinations remain distinct. Left and right legs stay within the existing shared cuboid geometry. Independent player outfit selection updates the associated legwear pattern, while cloth palette selection recolors it without erasing its construction details.
 
 ## Character Creator
 
@@ -85,6 +93,8 @@ Automated tests require:
 - Race-specific catalog names, motifs, and palettes.
 - Female and male collections that are independently authored.
 - Armor selection that does not alter the six-part humanoid geometry.
+- Every coordinated clothing identity resolves to legwear that is visually distinct within its gender catalog.
+- Every armor record supplies a matching leg pattern and avoids the generic trouser fallback.
 
 Browser verification covers switching race, gender, each armor family, open armor, full armor, and eye-slit armor; confirming each preview visibly changes; confirming covered helmets hide hair and markings; scrolling the Appearance region and long selectors; reaching Class and Enter the Capital at desktop viewport height; and entering the capital successfully with armor selected.
 
